@@ -29,8 +29,14 @@ docker run --name "$NAME" --platform linux/amd64 --cpus="$CPUS" \
     apt-get install -y openjdk-11-jdk build-essential >/dev/null
     cd /root
     # --webrtc-nobuild skips the four per-arch libwebrtc.a builds; only the AAR
-    # (built by build_aar.py) is shipped.
-    python3 run.py build android_stripped --webrtc-nobuild
+    # (built by build_aar.py) is shipped. --webrtc-fetch makes a rerun resume the
+    # gclient sync on the kept volume instead of building a half-synced tree.
+    # googlesource answers bursts of clones with HTTP 429, hence the retries.
+    for attempt in 1 2 3; do
+      python3 run.py build android_stripped --webrtc-fetch --webrtc-nobuild && break
+      [ $attempt = 3 ] && exit 1
+      echo "attempt $attempt failed, retrying in 5 minutes"; sleep 300
+    done
     cp _source/android_stripped/webrtc/src/out/aar/libwebrtc.aar /out/
   '
 ls -la "$OUT/libwebrtc.aar"

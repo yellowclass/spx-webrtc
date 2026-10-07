@@ -246,5 +246,5 @@ In the same app change as the plugin upgrade:
 - **Docker build very slow or `exec format error`**: Docker Desktop → Settings → General → enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon".
 - **`No space left on device` in Docker**: raise the Docker Desktop disk limit, or `docker builder prune` (the source volume is separate and survives this).
 - **Start the Android build from scratch**: `docker volume rm speakx-webrtc-android-src`.
-- **iOS `gclient sync` fails half way**: rerun the script; `run.py` resumes the sync.
+- **`gclient sync` fails with HTTP 429** (googlesource rate limit): don't run the Android and iOS syncs at the same time. The Android script retries 3 times; for iOS, rerun the script (`--webrtc-fetch` resumes the sync).
 - **`check_api.sh` cannot download upstream artifacts**: upstream publishes the Maven artifact and the `WebRTC-SDK` pod a little after tagging; wait and retry.
