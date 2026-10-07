@@ -100,6 +100,7 @@ JOBS=3 ./build/build.apple_stripped.sh
 - Source syncs into `build/_source/apple/` (shared with upstream's `apple` target).
 - Output: `build/_package/apple_stripped/WebRTC.xcframework` and `.zip`.
 - If a newer Xcode turns a new warning into a build error, add `treat_warnings_as_errors = false` to `STRIPPED_GN_ARGS` in `build.apple_stripped.sh` for that build and note it in the release notes.
+- **Xcode 27+**: WebRTC M150's bundled `lld` cannot read the iOS 27 SDK (`unknown architecture` / `arm64e.x1` in `.tbd` files at link time). `xcframework_ios.sh` detects SDK 27+ and links with Apple's `ld` instead (`use_lld = false`). That binary is about 0.6 MB larger than an Xcode 26 + `lld` build because Apple's `ld` folds less identical code; for exact parity with upstream, build iOS with Xcode 26 (upstream CI uses it). `check_api.sh` allows the small export differences Apple `ld` causes (compiler-rt `___emu*` helpers, extra C++ internals).
 
 ### Verify, package, publish
 

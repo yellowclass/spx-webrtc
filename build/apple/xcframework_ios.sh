@@ -35,6 +35,16 @@ PLATFORMS=(
   "iOS-x64-simulator:target_os=\"ios\" target_environment=\"simulator\" target_cpu=\"x64\" ios_deployment_target=\"13.0\""
 )
 
+# M150's bundled lld cannot read the iOS 27 SDK's .tbd stubs (new "arm64e.x1"
+# arch name) and fails at link time; Apple's own ld from that Xcode can. It
+# folds less identical code than lld, so the binary is ~0.6 MB bigger than an
+# Xcode 26 + lld build (upstream CI). Drop this once WebRTC's lld knows the arch.
+SDK_MAJOR="$(xcrun --sdk iphoneos --show-sdk-version | cut -d. -f1)"
+if [[ "$SDK_MAJOR" -ge 27 ]]; then
+  EXTRA_GN_ARGS="$EXTRA_GN_ARGS use_lld = false"
+  echo "iOS SDK $SDK_MAJOR: linking with Apple ld (use_lld = false)"
+fi
+
 cd "$SOURCE_DIR"
 for platform_config in "${PLATFORMS[@]}"; do
   platform="${platform_config%%:*}"

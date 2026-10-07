@@ -19,6 +19,11 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$CACHE"
 FAIL=0
 IOS_ALLOWED_REMOVALS='^_OBJC_(META)?CLASS_\$_RTCVideo(En|De)coderAV1$'
+# Linking with Apple ld (iOS 27+ SDK, see xcframework_ios.sh) drops lld's exported
+# compiler-rt helpers and exports a few more C++ internals. Neither is API the
+# plugins use (they compile against the ObjC headers only).
+IOS_ALLOWED_REMOVALS="$IOS_ALLOWED_REMOVALS|^___emu(pac|tls)_"
+IOS_ALLOWED_ADDITIONS='^__ZN6webrtc'
 
 mb() { awk -v b="$1" 'BEGIN { printf "%.2f", b / 1e6 }'; }
 gz() { gzip -9c "$1" | wc -c | tr -d ' '; }
@@ -77,8 +82,10 @@ if [[ -d "$OUR_XCF" ]]; then
   unexpected="$(grep -vE "$IOS_ALLOWED_REMOVALS" <<<"$removed" | grep -v '^$' || true)"
   echo "  exported symbols $(wc -l < "$WORK/up.sym" | tr -d ' ') -> $(wc -l < "$WORK/our.sym" | tr -d ' ')"
   [[ -n "$removed" ]] && echo "  removed: $(tr '\n' ' ' <<<"$removed")"
-  if [[ -n "$unexpected" || -n "$added" ]]; then
-    echo "  UNEXPECTED symbol changes:"; echo "$unexpected" "$added" | sed 's/^/    /'; FAIL=1
+  unexpected_added="$(grep -vE "$IOS_ALLOWED_ADDITIONS" <<<"$added" | grep -v '^$' || true)"
+  [[ -n "$added" ]] && echo "  added: $(tr '\n' ' ' <<<"$added")"
+  if [[ -n "$unexpected" || -n "$unexpected_added" ]]; then
+    echo "  UNEXPECTED symbol changes:"; printf '%s\n%s\n' "$unexpected" "$unexpected_added" | sed '/^$/d; s/^/    /'; FAIL=1
   fi
   if ! diff -rq "$(dirname "$up")/Headers" "$(dirname "$our")/Headers" >/dev/null; then
     echo "  public headers differ (expected only for removed AV1 classes):"
