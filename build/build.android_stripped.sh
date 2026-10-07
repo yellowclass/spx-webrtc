@@ -39,4 +39,8 @@ docker run --name "$NAME" --platform linux/amd64 --cpus="$CPUS" \
     done
     cp _source/android_stripped/webrtc/src/out/aar/libwebrtc.aar /out/
   '
+# M150 compiles the Java with a JDK 21 target; upstream stamps the classes back
+# to Java 17 before publishing, and so do we, or JDK 17 consumers fail with
+# "bad class file" (see speakx/downgrade_class_version.py).
+python3 ../speakx/downgrade_class_version.py "$OUT/libwebrtc.aar"
 ls -la "$OUT/libwebrtc.aar"

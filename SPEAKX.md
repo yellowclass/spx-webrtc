@@ -54,6 +54,7 @@ Everything SpeakX-specific is in these files. Everything else is upstream and mu
 | `speakx/check_api.sh` | prove the build is a drop-in, print the size win |
 | `speakx/package.sh` | make the Maven artifact and the podspec |
 | `speakx/publish.sh` | upload them as GitHub release `speakx-<ver>` |
+| `speakx/downgrade_class_version.py` | vendored from webrtc-sdk/android (MIT, `speakx/LICENSE.webrtc-sdk-android`): stamps the AAR's classes from Java 21 back to Java 17, as upstream does before publishing |
 | `SPEAKX.md` | this file |
 
 Branches and tags:
@@ -87,6 +88,7 @@ WebRTC only builds for Android on an x86_64 Linux host, so it runs in Docker (on
 - Source and build output live in the Docker volume `speakx-webrtc-android-src`, so an interrupted or failed build resumes instead of re-syncing ~30 GB.
 - Only the AAR is built (`--webrtc-nobuild` skips the four per-ABI `libwebrtc.a` builds nobody ships).
 - Output: `build/_package/android_stripped/libwebrtc.aar` (4 ABIs).
+- M150+ compiles the Java with a JDK 21 target. The script stamps the classes back to Java 17 at the end, exactly like upstream's published AAR; without it, apps on JDK 17 fail to compile against the AAR with `bad class file`. `check_api.sh` fails if the class version differs from upstream's.
 - Log tip: `docker logs -f speakx-webrtc-android`.
 
 ### iOS

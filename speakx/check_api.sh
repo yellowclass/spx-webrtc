@@ -47,6 +47,16 @@ if [[ -f "$OUR_AAR" ]]; then
   for side in up our; do
     unzip -Z1 "$WORK/$side/classes.jar" | grep '\.class$' | sort > "$WORK/$side.classes"
   done
+  for side in up our; do
+    (cd "$WORK/$side" && unzip -qo classes.jar org/webrtc/PeerConnectionFactory.class -d cls)
+    python3 -c 'import sys; print(int.from_bytes(open(sys.argv[1], "rb").read()[6:8], "big"))' \
+      "$WORK/$side/cls/org/webrtc/PeerConnectionFactory.class" > "$WORK/$side.major"
+  done
+  if [[ "$(cat "$WORK/up.major")" != "$(cat "$WORK/our.major")" ]]; then
+    echo "  class file version DIFFERS: upstream $(cat "$WORK/up.major"), ours $(cat "$WORK/our.major") (run speakx/downgrade_class_version.py)"; FAIL=1
+  else
+    echo "  class file version matches upstream ($(cat "$WORK/our.major"))"
+  fi
   if diff -q "$WORK/up.classes" "$WORK/our.classes" >/dev/null; then
     echo "  Java classes identical ($(wc -l < "$WORK/our.classes" | tr -d ' '))"
   else
