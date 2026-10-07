@@ -43,11 +43,12 @@ Everything SpeakX-specific is in these files. Everything else is upstream and mu
 
 | File | Purpose |
 |---|---|
-| `build/run.py` | small edit: registers the `android_stripped` target (patch list, build targets, GN args shared with `android_prefixed_stripped` through `ANDROID_STRIPPED_GN_ARGS`) |
+| `build/run.py` | small edits: registers the `android_stripped` target (patch list, build targets, GN args shared with `android_prefixed_stripped` through `ANDROID_STRIPPED_GN_ARGS`), and reads `GCLIENT_JOBS` for the `gclient sync --jobs` value |
 | `build/build.android_stripped.sh` | local Android build in a linux/amd64 Docker container |
 | `build/android_stripped/Dockerfile` | same build as a Docker image (CI parity with upstream's other Android targets) |
 | `build/build.apple_stripped.sh` | iOS build; holds the iOS strip list (`STRIPPED_GN_ARGS`) |
 | `build/apple/xcframework_ios.sh` | iOS-only copy of upstream `apple/xcframework.sh` (device arm64, simulator arm64 + x64) |
+| `speakx/build_all.sh` | build iOS then Android without overlapping their source syncs |
 | `speakx/sync.sh` | move our commits onto a new upstream release tag |
 | `speakx/check_drift.sh` | compare our strip list and base args with upstream's, list new WebRTC build args |
 | `speakx/check_api.sh` | prove the build is a drop-in, print the size win |
@@ -63,7 +64,17 @@ Branches and tags:
 
 ## Building
 
-Needs about 60 GB free disk and a few hours the first time; later builds reuse the synced source.
+Needs about 60 GB free disk and a few hours the first time (most of it is the source download); later builds reuse the synced source.
+
+The normal way to build both:
+
+```bash
+speakx/build_all.sh          # logs in out/logs/
+```
+
+It syncs iOS first and starts Android once iOS is compiling, so the two source downloads never overlap: googlesource rate-limits one IP with HTTP 429 and two full syncs at once trip it. It also lowers gclient's parallel clones (`GCLIENT_JOBS`, default 3 here; upstream uses 8). Rerunning after a failure resumes the sync.
+
+The per-platform scripts below are what it calls.
 
 ### Android
 
@@ -168,7 +179,9 @@ Almost always in `build/run.py`, because upstream edits the same lists we extend
 - `PATCHES`: same list as `android_prefixed_stripped` minus `jni_prefix.patch`;
 - `WEBRTC_BUILD_TARGETS`: same list as `android_prefixed_stripped`;
 - `TARGET_EXTRA_GN_ARGS`: both keys pointing at `ANDROID_STRIPPED_GN_ARGS` (if upstream changed their string, put their new string in the constant);
-- `TARGETS`.
+- `TARGETS`;
+
+and the `gclient sync` call must still read `--jobs` from `GCLIENT_JOBS`.
 
 ```bash
 grep -n "android_prefixed_stripped" build/run.py    # every hit should have an android_stripped twin

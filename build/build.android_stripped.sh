@@ -21,7 +21,7 @@ docker run --name "$NAME" --platform linux/amd64 --cpus="$CPUS" \
   -v "$VOLUME":/root/_source \
   -v "$PWD":/src:ro \
   -v "$OUT":/out \
-  -e LC_ALL=C.UTF-8 -e DEBIAN_FRONTEND=noninteractive \
+  -e LC_ALL=C.UTF-8 -e DEBIAN_FRONTEND=noninteractive -e GCLIENT_JOBS="${GCLIENT_JOBS:-8}" \
   ubuntu:24.04 bash -c '
     set -ex
     cp -r /src/run.py /src/VERSION /src/.gclient /src/patches /src/scripts /root/

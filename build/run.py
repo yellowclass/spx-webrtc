@@ -359,7 +359,8 @@ def get_webrtc(source_dir, patch_dir, version, target,
             else:
                 cmd(['git', 'checkout', '-f', version])
             cmd(['git', 'clean', '-df'])
-            cmd(['gclient', 'sync', '-D', '--force', '--reset', '--with_branch_heads', '--jobs=8'])
+            # SpeakX: GCLIENT_JOBS lowers parallel clones; googlesource rate-limits (HTTP 429) one IP.
+            cmd(['gclient', 'sync', '-D', '--force', '--reset', '--with_branch_heads', f'--jobs={os.environ.get("GCLIENT_JOBS", "8")}'])
             patches = [*PATCHES[target], *(TEST_PATCHES if test else [])]
             for patch in patches:
                 depth, dirs = PATCH_INFO.get(patch, (1, ['.']))
