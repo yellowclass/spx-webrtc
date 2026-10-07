@@ -3,6 +3,8 @@
 #   out/maven/in/speakx/webrtc/android-stripped/<ver>/  (aar + pom, a plain Maven layout)
 #   out/ios/<ver>/WebRTC.xcframework.zip + WebRTC-SDK.podspec.json (pod name/version match the
 #   plugins' 'WebRTC-SDK', '<ver>' pin, so a Podfile override satisfies it)
+#   out/release/speakx-<ver>/  exact mirror of the GitHub release publish.sh creates;
+#   point the app at file://<repo>/out/release to test before publishing
 #
 #   speakx/package.sh            # podspec points at the GitHub release (publish.sh)
 #   speakx/package.sh --local    # podspec points at the local zip, for a pod install test
@@ -68,3 +70,10 @@ if [[ -f "$XCF" ]]; then
 SPEC
   echo "ios: $I"
 fi
+
+REL="$ROOT/out/release/speakx-$VER"
+mkdir -p "$REL"
+[[ -f "$AAR" ]] && cp "$M/android-stripped-$VER.aar" "$M/android-stripped-$VER.pom" "$M/ivy-$VER.xml" "$REL/"
+[[ -f "$XCF" ]] && cp "$I/WebRTC.xcframework.zip" "$I/WebRTC-SDK.podspec.json" "$REL/"
+echo "release layout: $REL"
+ls "$REL"

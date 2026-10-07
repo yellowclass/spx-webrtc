@@ -106,8 +106,8 @@ JOBS=3 ./build/build.apple_stripped.sh
 
 ```bash
 speakx/check_api.sh      # must print "OK: drop-in compatible"
-speakx/package.sh        # -> out/maven/..., out/ios/<ver>/
-speakx/publish.sh        # -> GitHub release speakx-<ver>
+speakx/package.sh        # -> out/release/speakx-<ver>/ (exact mirror of the GitHub release)
+speakx/publish.sh        # uploads that folder as GitHub release speakx-<ver>
 ```
 
 ## Using it in an app
@@ -146,6 +146,8 @@ pod 'WebRTC-SDK', :podspec => 'https://github.com/yellowclass/spx-webrtc/release
 ```
 
 Same pod name and version as upstream, so the plugins' `'WebRTC-SDK', '150.7871.01'` requirement is satisfied by ours. Run `pod install` and commit `Podfile.lock`.
+
+**Testing a build before publishing**: `speakx/package.sh --local`, then build the app with `SPX_WEBRTC_REPO=file://<this repo>/out/release` (Gradle) and `SPX_WEBRTC_PODSPEC=<this repo>/out/release/speakx-<ver>/WebRTC-SDK.podspec.json pod install` (iOS), if the app's Gradle and Podfile read those variables. Don't commit the `Podfile.lock` from a local test: it records the local path.
 
 **Rollback**: delete those lines (Gradle substitution + ivy repo, Podfile line, then `pod install`). The app goes straight back to upstream's binary of the same version.
 
