@@ -1,0 +1,76 @@
+--- a/sdk/android/src/java/org/webrtc/audio/WebRtcAudioRecord.java
++++ b/sdk/android/src/java/org/webrtc/audio/WebRtcAudioRecord.java
+@@ -103,6 +103,11 @@
+ 
+   private final Object audioThreadStateLock = new Object();
+   private @Nullable AudioRecordThread audioThread;
++
++  // Held across every nativeDataIsRecorded call and by stopRecording() while it
++  // clears nativeCalledStartRecording, so no delivery is in flight once native
++  // StopRecording has run. Never acquire audioRecordStateLock while holding it.
++  private final Object nativeDeliveryLock = new Object();
+   private @Nullable AudioDeviceInfo preferredDevice;
+ 
+   private final ScheduledExecutorService executor;
+@@ -169,10 +174,8 @@
+       while (keepAlive) {
+         long captureTimeNs = 0;
+         AudioRecord audioRecord;
+-        boolean shouldReportData;
+         synchronized (audioRecordStateLock) {
+           audioRecord = WebRtcAudioRecord.this.audioRecord;
+-          shouldReportData = nativeCalledInitRecording.get();
+         }
+         // Re-check after the snapshot: a stop may have completed while this
+         // thread waited at the monitor, and a subsequent start may already
+@@ -302,8 +305,19 @@
+         // It's possible we've been shut down during the read, and stopRecording() tried and
+         // failed to join this thread. To be a bit safer, try to avoid calling any native methods
+         // in case they've been unregistered after stopRecording() returned.
+-        if (keepAlive && shouldReportData) {
+-          nativeDataIsRecorded(nativeAudioRecord, bytesRead, captureTimeNs);
++        //
++        // Gate on native StartRecording, not InitRecording: with a prewarmed thread
++        // already running, initRecording() returns to native before native has
++        // stored frames_per_buffer_, and a delivery in that gap hands the capture
++        // resampler a zero-length buffer (libc++ span:521 abort in
++        // PushResampler::Resample). Native only calls startRecording() once
++        // InitRecording has fully completed.
++        if (keepAlive) {
++          synchronized (nativeDeliveryLock) {
++            if (nativeCalledStartRecording.get()) {
++              nativeDataIsRecorded(nativeAudioRecord, bytesRead, captureTimeNs);
++            }
++          }
+         }
+         if (audioSamplesReadyCallback != null) {
+           // Copy the entire byte buffer array. The start of the byteBuffer is not necessarily
+@@ -712,7 +726,13 @@
+       synchronized(audioRecordStateLock) {
+         synchronized (audioThreadStateLock) {
+           if (audioThread == null) {
+-            return startRecordingImpl();
++            if (!startRecordingImpl()) {
++              // Native keeps recording_ false and so never calls stopRecording();
++              // clear the flag here or a later prewarm thread would deliver.
++              nativeCalledStartRecording.set(false);
++              return false;
++            }
++            return true;
+           }
+         }
+       }
+@@ -769,8 +789,12 @@
+   @CalledByNative
+   private boolean stopRecording() {
+     Logging.d(TAG, "stopRecording");
+-    synchronized(audioRecordStateLock) {
++    // Waits out any in-flight delivery: native nulls its buffer pointer as soon
++    // as this returns, and a prewarmed thread keeps running past this stop.
++    synchronized (nativeDeliveryLock) {
+       nativeCalledStartRecording.set(false);
++    }
++    synchronized(audioRecordStateLock) {
+       nativeCalledInitRecording.set(false);
+     }
+     return stopRecordingIfNeededImpl();
